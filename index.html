@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIHIT FITNESS CLUB</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#101820;color:white;padding:20px}
+.container{max-width:480px;margin:35px auto;background:#1c2935;padding:25px;border-radius:16px}
+h1{text-align:center;color:#f5b700;margin-bottom:5px}
+p{text-align:center;color:#cbd5e1}
+input,select,button{width:100%;padding:14px;margin:9px 0;border-radius:8px;border:1px solid #475569;font-size:16px}
+input,select{background:#101820;color:white}
+button{background:#f5b700;color:#101820;font-weight:bold;border:0;cursor:pointer}
+button:disabled{opacity:.6}
+#message{text-align:center;margin-top:15px;line-height:1.5}
+.small{text-align:center;font-size:12px;color:#94a3b8}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>NIHIT FITNESS CLUB</h1>
+<p>New Member Registration</p>
+
+<form id="registerForm">
+<input id="name" placeholder="Full Name" required minlength="2">
+<input id="mobile" placeholder="10 Digit Mobile Number" inputmode="numeric" maxlength="10" required>
+<input id="age" type="number" placeholder="Age" min="10" max="100">
+<select id="gender">
+<option value="">Select Gender</option>
+<option>Male</option>
+<option>Female</option>
+<option>Other</option>
+</select>
+<select id="plan" required>
+<option value="">Select Membership Plan</option>
+<option>Monthly (Standard)</option>
+<option>Quarterly</option>
+<option>Half Yearly</option>
+<option>Yearly</option>
+</select>
+<input id="pin" type="password" placeholder="Create Personal PIN (4-8 digits)" inputmode="numeric" maxlength="8" required>
+<button id="submitBtn" type="submit">REGISTER NOW</button>
+</form>
+
+<div id="message"></div>
+<p class="small">Welcome to NIHIT FITNESS CLUB</p>
+</div>
+
+<script>
+const SUPABASE_URL = "https://fuxdsulcdscdfoswehka.supabase.co";
+const SUPABASE_KEY = "sb_publishable_tPJTQGaKKcj1oeV3p54k5Q_pRjMsmUr";
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+document.getElementById("registerForm").addEventListener("submit", async function(e){
+  e.preventDefault();
+
+  const btn = document.getElementById("submitBtn");
+  const message = document.getElementById("message");
+
+  const fullName = document.getElementById("name").value.trim();
+  const mobile = document.getElementById("mobile").value.trim();
+  const ageValue = document.getElementById("age").value;
+  const age = ageValue ? Number(ageValue) : null;
+  const gender = document.getElementById("gender").value || null;
+  const plan = document.getElementById("plan").value;
+  const pin = document.getElementById("pin").value;
+
+  if(!/^[0-9]{10}$/.test(mobile)){
+    message.textContent = "Please enter a valid 10 digit mobile number.";
+    return;
+  }
+
+  if(!/^[0-9]{4,8}$/.test(pin)){
+    message.textContent = "PIN must contain 4 to 8 digits.";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "PLEASE WAIT...";
+  message.textContent = "";
+
+  const {data, error} = await db.rpc("register_member", {
+    p_full_name: fullName,
+    p_mobile: mobile,
+    p_pin: pin,
+    p_plan: plan,
+    p_age: age,
+    p_gender: gender
+  });
+
+  btn.disabled = false;
+  btn.textContent = "REGISTER NOW";
+
+  if(error){
+    message.textContent = error.message.includes("duplicate")
+      ? "This mobile number is already registered."
+      : "Registration failed: " + error.message;
+    return;
+  }
+
+  message.innerHTML = "Registration Successful!<br>Your Member ID: <strong>" + data + "</strong>";
+  document.getElementById("registerForm").reset();
+});
+</script>
+</body>
+</html>
