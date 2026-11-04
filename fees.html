@@ -1,0 +1,189 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIHIT FITNESS CLUB - Fees</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:#101820;color:white;font-family:Arial}
+.container{max-width:600px;margin:25px auto;background:#1c2935;padding:22px;border-radius:14px}
+h1{color:#f5b700;text-align:center}
+input,select,button{width:100%;padding:14px;margin:9px 0;border-radius:8px;font-size:16px}
+input,select{background:#101820;color:white;border:1px solid #475569}
+button{background:#f5b700;color:#101820;border:0;font-weight:bold}
+#message{text-align:center;white-space:pre-wrap}
+a{color:#f5b700}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>NIHIT FITNESS CLUB</h1>
+<h2>Fees Management</h2>
+<p id="message">Checking Admin Login...</p>
+
+<div id="panel" style="display:none">
+<label>Select Member</label>
+<select id="member" required>
+<option value="">Loading Members...</option>
+</select>
+
+<label>Amount (₹)</label>
+<input id="amount" type="number" min="1" step="0.01" placeholder="Enter Fees Amount" required>
+
+<label>Payment Date</label>
+<input id="date" type="date" required>
+
+<label>Payment Mode</label>
+<select id="mode">
+<option value="Cash">Cash</option>
+<option value="UPI">UPI</option>
+<option value="Card">Card</option>
+<option value="Bank Transfer">Bank Transfer</option>
+</select>
+
+<label>Payment Status</label>
+<select id="status">
+<option value="Paid">Paid</option>
+<option value="Pending">Pending</option>
+</select>
+
+<button id="saveBtn" onclick="savePayment()">SAVE PAYMENT</button>
+<h3>Payment Records</h3>
+<div id="records"></div>
+<p><a href="admin.html">Back to Admin Dashboard</a></p>
+</div>
+</div>
+
+<script>
+const db=window.supabase.createClient(
+ "https://fuxdsulcdscdfoswehka.supabase.co",
+ "sb_publishable_tPJTQGaKKcj1oeV3p54k5Q_pRjMsmUr"
+);
+
+let memberList=[];
+
+function today(){
+ return new Date().toLocaleDateString("en-CA");
+}
+document.getElementById("date").value=today();
+
+async function init(){
+ const msg=document.getElementById("message");
+ const {data:{session},error}=await db.auth.getSession();
+
+ if(error || !session){
+  msg.textContent="Please login from Admin Dashboard first.";
+  return;
+ }
+
+ const {data:admin,error:adminError}=await db
+ .from("admin_users").select("user_id")
+ .eq("user_id",session.user.id).maybeSingle();
+
+ if(adminError || !admin){
+  msg.textContent="Access denied. Admin account required.";
+  return;
+ }
+
+ document.getElementById("panel").style.display="block";
+ msg.textContent="Admin verified.";
+ await loadMembers();
+ await loadPayments();
+}
+
+async function loadMembers(){
+ const {data,error}=await db.from("members")
+ .select("id,member_id,full_name,mobile")
+ .order("full_name");
+
+ if(error){
+  document.getElementById("message").textContent=error.message;
+  return;
+ }
+
+ memberList=data||[];
+ const select=document.getElementById("member");
+ select.innerHTML='<option value="">Select Member</option>';
+
+ memberList.forEach(m=>{
+  const option=document.createElement("option");
+  option.value=m.id;
+  option.textContent=m.member_id+" - "+m.full_name+" ("+m.mobile+")";
+  select.appendChild(option);
+ });
+}
+
+async function savePayment(){
+ const member=document.getElementById("member").value;
+ const amount=Number(document.getElementById("amount").value);
+ const date=document.getElementById("date").value;
+ const mode=document.getElementById("mode").value;
+ const status=document.getElementById("status").value;
+ const msg=document.getElementById("message");
+ const btn=document.getElementById("saveBtn");
+
+ if(!member || !amount || amount<=0 || !date){
+  msg.textContent="Please fill all required fields.";
+  return;
+ }
+
+ btn.disabled=true;
+ msg.textContent="Saving payment...";
+
+ const {error}=await db.from("payments").insert([{
+  member_id:member,
+  amount:amount,
+  payment_date:date,
+  payment_mode:mode,
+  status:status
+ }]);
+
+ btn.disabled=false;
+
+ if(error){
+  msg.textContent="Payment failed: "+error.message;
+  return;
+ }
+
+ msg.textContent="Payment record saved successfully.";
+ document.getElementById("amount").value="";
+ await loadPayments();
+}
+
+async function loadPayments(){
+ const {data,error}=await db.from("payments")
+ .select("amount,payment_date,payment_mode,status,members(member_id,full_name)")
+ .order("created_at",{ascending:false});
+
+ const records=document.getElementById("records");
+
+ if(error){
+  records.textContent="Could not load records: "+error.message;
+  return;
+ }
+
+ if(!data.length){
+  records.textContent="No payment records yet.";
+  return;
+ }
+
+ records.innerHTML="";
+ data.forEach(p=>{
+  const div=document.createElement("div");
+  div.style.cssText="padding:12px;margin:8px 0;background:#334155;border-radius:8px";
+  const title=document.createElement("strong");
+  title.textContent=(p.members?.member_id||"Member")+" - "+(p.members?.full_name||"");
+  const detail=document.createElement("p");
+  detail.textContent="₹"+p.amount+" | "+p.payment_date+" | "+p.payment_mode+" | "+p.status;
+  div.append(title,detail);
+  records.appendChild(div);
+ });
+}
+
+init();
+</script>
+</body>
+</html>
