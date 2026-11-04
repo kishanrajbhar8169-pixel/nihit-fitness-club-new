@@ -1,0 +1,148 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIHIT FITNESS CLUB - Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:#101820;color:white;font-family:Arial}
+.container{max-width:900px;margin:30px auto;background:#1c2935;padding:22px;border-radius:14px}
+h1{color:#f5b700;text-align:center}
+input,button{width:100%;padding:13px;margin:8px 0;border:0;border-radius:7px;font-size:16px}
+input{background:#101820;color:white;border:1px solid #475569}
+button{background:#f5b700;color:#101820;font-weight:bold;cursor:pointer}
+.logout{background:#dc3545;color:white}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+th,td{padding:10px;border:1px solid #475569;text-align:left}
+th{background:#334155}
+.table-wrap{overflow-x:auto}
+#dashboard{display:none}
+#message{color:#f5b700;text-align:center;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>NIHIT FITNESS CLUB</h1>
+<h2 style="text-align:center">Admin Dashboard</h2>
+
+<div id="login">
+<h3>Admin Login</h3>
+<input id="email" type="email" placeholder="Admin Email" required>
+<input id="password" type="password" placeholder="Password" required>
+<button id="loginBtn" onclick="login()">LOGIN</button>
+</div>
+
+<div id="dashboard">
+<button onclick="loadMembers()">REFRESH MEMBERS</button>
+<button class="logout" onclick="logout()">LOGOUT</button>
+<input id="search" placeholder="Search Name, Member ID or Mobile" oninput="showMembers()">
+<p id="count"></p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Member ID</th>
+<th>Name</th>
+<th>Mobile</th>
+<th>Plan</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody id="memberRows"></tbody>
+</table>
+</div>
+</div>
+<p id="message"></p>
+</div>
+
+<script>
+const SUPABASE_URL = "https://fuxdsulcdscdfoswehka.supabase.co";
+const SUPABASE_KEY = "sb_publishable_tPJTQGaKKcj1oeV3p54k5Q_pRjMsmUr";
+const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let members = [];
+
+async function login(){
+ const email=document.getElementById("email").value.trim();
+ const password=document.getElementById("password").value;
+ const btn=document.getElementById("loginBtn");
+ const msg=document.getElementById("message");
+
+ if(!email || !password){msg.textContent="Enter email and password.";return;}
+
+ btn.disabled=true;
+ msg.textContent="Logging in...";
+
+ const {error}=await db.auth.signInWithPassword({email,password});
+
+ btn.disabled=false;
+
+ if(error){msg.textContent="Login failed: "+error.message;return;}
+
+ document.getElementById("login").style.display="none";
+ document.getElementById("dashboard").style.display="block";
+ msg.textContent="";
+ await loadMembers();
+}
+
+async function loadMembers(){
+ const msg=document.getElementById("message");
+ msg.textContent="Loading members...";
+
+ const {data,error}=await db
+ .from("members")
+ .select("member_id,full_name,mobile,plan,status,created_at")
+ .order("created_at",{ascending:false});
+
+ if(error){
+   msg.textContent="Could not load members: "+error.message;
+   return;
+ }
+
+ members=data || [];
+ msg.textContent="";
+ showMembers();
+}
+
+function showMembers(){
+ const term=document.getElementById("search").value.toLowerCase();
+ const filtered=members.filter(m=>
+  (m.member_id||"").toLowerCase().includes(term) ||
+  (m.full_name||"").toLowerCase().includes(term) ||
+  (m.mobile||"").includes(term)
+ );
+
+ document.getElementById("count").textContent=
+ "Total Members: "+filtered.length;
+
+ document.getElementById("memberRows").innerHTML=
+ filtered.map(m=>`<tr>
+ <td>${escapeHTML(m.member_id)}</td>
+ <td>${escapeHTML(m.full_name)}</td>
+ <td>${escapeHTML(m.mobile)}</td>
+ <td>${escapeHTML(m.plan||"-")}</td>
+ <td>${escapeHTML(m.status||"-")}</td>
+ </tr>`).join("");
+}
+
+function escapeHTML(value){
+ return String(value??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",
+ '"':"&quot;","'":"&#39;"
+ }[c]));
+}
+
+async function logout(){
+ await db.auth.signOut();
+ members=[];
+ document.getElementById("dashboard").style.display="none";
+ document.getElementById("login").style.display="block";
+ document.getElementById("password").value="";
+ document.getElementById("message").textContent="Logged out.";
+}
+</script>
+</body>
+</html>
