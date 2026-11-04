@@ -43,7 +43,65 @@ th{background:#334155}
 <button onclick="loadMembers()">REFRESH MEMBERS</button>
 <button onclick="loadAttendance()">REFRESH ATTENDANCE</button>
 <button class="logout" onclick="logout()">LOGOUT</button>
+ <button onclick="document.getElementById('adminRegisterForm').style.display='block'">
+ADD MEMBER
+</button>
 
+<div id="adminRegisterForm" style="display:none;background:#101820;padding:18px;border-radius:10px;margin-top:15px;">
+<h3 style="color:#f5b700;">NEW MEMBER REGISTRATION</h3>
+<form id="adminRegisterFormFields">
+<label>Full Name</label>
+<input id="adminName" required minlength="2" placeholder="Full Name">
+
+<label>Mobile Number</label>
+<input id="adminMobile" required maxlength="10" inputmode="numeric" placeholder="10 Digit Mobile">
+
+<label>Age</label>
+<input id="adminAge" type="number" min="10" max="100" placeholder="Age">
+
+<label>Gender</label>
+<select id="adminGender">
+<option value="">Select Gender</option>
+<option>Male</option>
+<option>Female</option>
+<option>Other</option>
+</select>
+
+<label>Membership Plan</label>
+<select id="adminPlan" required>
+<option value="">Select Plan</option>
+<option>Monthly (Standard)</option>
+<option>Quarterly</option>
+<option>Half Yearly</option>
+<option>Yearly</option>
+</select>
+
+<label>Personal PIN</label>
+<input id="adminPin" type="password" maxlength="8" required placeholder="4-8 Digit PIN">
+
+<label>Payment Mode</label>
+<select id="adminPaymentMode" required>
+<option value="">Select Payment Mode</option>
+<option>Cash</option>
+<option>UPI</option>
+<option>Card</option>
+<option>Bank Transfer</option>
+</select>
+
+<label>Payment Status</label>
+<select id="adminPaymentStatus" required>
+<option value="">Select Status</option>
+<option>Paid</option>
+<option>Pending</option>
+</select>
+
+<label>Payment Amount (₹)</label>
+<input id="adminPaymentAmount" type="number" min="0.01" step="0.01" required placeholder="Enter Amount">
+
+<button type="submit">REGISTER MEMBER</button>
+</form>
+<p id="adminRegisterMessage"></p>
+</div>
 <div class="section">
 <h3>Member List</h3>
 <input id="search" placeholder="Search Name, Member ID or Mobile" oninput="showMembers()">
@@ -380,6 +438,72 @@ async function logout(){
  document.getElementById("password").value="";
  document.getElementById("message").textContent="Logged out.";
 }
+document.getElementById("adminRegisterFormFields").addEventListener("submit", async function(e){
+ e.preventDefault();
+
+ const btn=this.querySelector('button[type="submit"]');
+ const msg=document.getElementById("adminRegisterMessage");
+
+ const fullName=document.getElementById("adminName").value.trim();
+ const mobile=document.getElementById("adminMobile").value.trim();
+ const ageValue=document.getElementById("adminAge").value;
+ const age=ageValue ? Number(ageValue) : null;
+ const gender=document.getElementById("adminGender").value || null;
+ const plan=document.getElementById("adminPlan").value;
+ const pin=document.getElementById("adminPin").value;
+ const paymentMode=document.getElementById("adminPaymentMode").value;
+ const paymentStatus=document.getElementById("adminPaymentStatus").value;
+ const paymentAmount=Number(document.getElementById("adminPaymentAmount").value);
+
+ if(!/^[0-9]{10}$/.test(mobile)){
+   msg.textContent="Enter valid 10 digit mobile number.";
+   return;
+ }
+
+ if(!/^[0-9]{4,8}$/.test(pin)){
+   msg.textContent="PIN must contain 4 to 8 digits.";
+   return;
+ }
+
+ if(!Number.isFinite(paymentAmount) || paymentAmount<=0){
+   msg.textContent="Enter valid payment amount.";
+   return;
+ }
+
+ btn.disabled=true;
+ btn.textContent="PLEASE WAIT...";
+ msg.textContent="Registering member...";
+
+ try{
+   const {data,error}=await db.rpc("register_member",{
+     p_full_name:fullName,
+     p_mobile:mobile,
+     p_pin:pin,
+     p_plan:plan,
+     p_age:age,
+     p_gender:gender,
+     p_payment_mode:paymentMode,
+     p_payment_status:paymentStatus,
+     p_payment_amount:paymentAmount
+   });
+
+   if(error) throw error;
+
+   msg.textContent="Registration Successful! Member ID: "+data;
+
+   this.reset();
+
+   await loadMembers();
+   await loadDeactivatedCount();
+   await loadInactiveMembers();
+
+ }catch(error){
+   msg.textContent="Registration failed: "+error.message;
+ }finally{
+   btn.disabled=false;
+   btn.textContent="REGISTER MEMBER";
+ }
+});
 </script>
 </body>
 </html>
