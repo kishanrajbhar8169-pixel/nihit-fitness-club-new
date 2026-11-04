@@ -15,6 +15,7 @@ input,select,button{width:100%;padding:14px;margin:9px 0;border-radius:8px;font-
 input,select{background:#101820;color:white;border:1px solid #475569}
 button{background:#f5b700;color:#101820;border:0;font-weight:bold;cursor:pointer}
 button:disabled{opacity:.6}
+.mark-btn{background:#35d07f;color:#102018;margin-top:8px}
 #message{text-align:center;white-space:pre-wrap}
 a{color:#f5b700}
 .section{margin-top:25px;padding:15px;background:#263747;border-radius:10px}
@@ -32,21 +33,16 @@ a{color:#f5b700}
 <p id="message">Checking Admin Login...</p>
 
 <div id="panel" style="display:none">
-
 <div class="section">
 <h3>Save Payment</h3>
-
 <label>Select Member</label>
 <select id="member" required>
 <option value="">Loading Members...</option>
 </select>
-
 <label>Amount (₹)</label>
 <input id="amount" type="number" min="1" step="0.01" placeholder="Enter Fees Amount" required>
-
 <label>Payment Date</label>
 <input id="date" type="date" required>
-
 <label>Payment Mode</label>
 <select id="mode">
 <option value="Cash">Cash</option>
@@ -54,13 +50,11 @@ a{color:#f5b700}
 <option value="Card">Card</option>
 <option value="Bank Transfer">Bank Transfer</option>
 </select>
-
 <label>Payment Status</label>
 <select id="status">
 <option value="Paid">Paid</option>
 <option value="Pending">Pending</option>
 </select>
-
 <button id="saveBtn" onclick="savePayment()">SAVE PAYMENT</button>
 </div>
 
@@ -79,7 +73,6 @@ a{color:#f5b700}
 <h3>All Payment Records</h3>
 <div id="records">Loading...</div>
 </div>
-
 <p><a href="admin.html">Back to Admin Dashboard</a></p>
 </div>
 </div>
@@ -90,12 +83,9 @@ const db=window.supabase.createClient(
  "sb_publishable_tPJTQGaKKcj1oeV3p54k5Q_pRjMsmUr"
 );
 
-let memberList=[];
-
 function today(){
  return new Date().toLocaleDateString("en-CA");
 }
-
 document.getElementById("date").value=today();
 
 async function init(){
@@ -117,8 +107,7 @@ async function init(){
  }
 
  document.getElementById("panel").style.display="block";
- msg.textContent="Admin verified.";
-
+ msg.textContent="";
  await loadMembers();
  await loadPayments();
 }
@@ -133,11 +122,10 @@ async function loadMembers(){
   return;
  }
 
- memberList=data||[];
  const select=document.getElementById("member");
  select.innerHTML='<option value="">Select Member</option>';
 
- memberList.forEach(m=>{
+ (data||[]).forEach(m=>{
   const option=document.createElement("option");
   option.value=m.id;
   option.textContent=m.member_id+" - "+m.full_name+" ("+m.mobile+")";
@@ -182,14 +170,49 @@ async function savePayment(){
  await loadPayments();
 }
 
-async function loadPayments(){
- const {data,error}=await db.from("payments")
- .select("amount,payment_date,payment_mode,status,members(member_id,full_name,mobile)")
- .order("created_at",{ascending:false})
- .limit(1000);
+async function markAsPaid(id,button){
+ if(!confirm("Are you sure this payment has been received?")) return;
 
+ button.disabled=true;
+ button.textContent="Updating...";
+
+ const {data,error}=await db
+ .from("payments")
+ .update({status:"Paid"})
+ .eq("id",id)
+ .eq("status","Pending")
+ .select("id");
+
+ if(error){
+  document.getElementById("message").textContent=
+   "Update failed: "+error.message;
+  button.disabled=false;
+  button.textContent="MARK AS PAID";
+  return;
+ }
+
+ if(!data || data.length===0){
+  document.getElementById("message").textContent=
+   "Payment was not updated. Refresh and check the record.";
+  button.disabled=false;
+  button.textContent="MARK AS PAID";
+  return;
+ }
+
+ document.getElementById("message").textContent=
+  "Payment marked as Paid successfully.";
+
+ await loadPayments();
+}
+
+async function loadPayments(){
  const records=document.getElementById("records");
  const pendingRecords=document.getElementById("pendingRecords");
+
+ const {data,error}=await db.from("payments")
+ .select("id,amount,payment_date,payment_mode,status,members(member_id,full_name,mobile)")
+ .order("created_at",{ascending:false})
+ .limit(1000);
 
  if(error){
   records.textContent="Could not load records: "+error.message;
@@ -200,19 +223,18 @@ async function loadPayments(){
 
  const payments=data||[];
  const pending=payments.filter(p=>p.status==="Pending");
-
  const total=pending.reduce((sum,p)=>sum+Number(p.amount||0),0);
 
  document.getElementById("pendingTotal").textContent=
  "₹"+total.toFixed(2);
-
  document.getElementById("pendingCount").textContent=
  "Pending Records: "+pending.length;
 
- if(pending.length===0){
+ pendingRecords.innerHTML="";
+
+ if(!pending.length){
   pendingRecords.textContent="No pending payment records.";
  }else{
-  pendingRecords.innerHTML="";
   pending.forEach(p=>{
    const div=document.createElement("div");
    div.className="record pending";
@@ -223,15 +245,21 @@ async function loadPayments(){
    const detail=document.createElement("p");
    detail.textContent="Pending: ₹"+p.amount+" | "+p.payment_date+" | "+p.payment_mode;
 
-   div.append(title,detail);
+   const btn=document.createElement("button");
+   btn.className="mark-btn";
+   btn.textContent="MARK AS PAID";
+   btn.onclick=()=>markAsPaid(p.id,btn);
+
+   div.append(title,detail,btn);
    pendingRecords.appendChild(div);
   });
  }
 
- if(payments.length===0){
+ records.innerHTML="";
+
+ if(!payments.length){
   records.textContent="No payment records yet.";
  }else{
-  records.innerHTML="";
   payments.forEach(p=>{
    const div=document.createElement("div");
    div.className="record "+(p.status==="Paid"?"paid":"pending");
