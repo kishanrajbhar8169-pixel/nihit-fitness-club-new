@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Member Check-in | NIHIT FITNESS CLUB</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: #101820;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      padding: 28px;
+      background: #1c2935;
+      border-radius: 16px;
+      box-shadow: 0 10px 35px #0006;
+    }
+    h1 { text-align: center; color: #f5b400; }
+    p { text-align: center; color: #cbd5df; }
+    label { display: block; margin: 18px 0 7px; }
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #526170;
+      border-radius: 8px;
+      background: #101820;
+      color: white;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      margin-top: 22px;
+      padding: 14px;
+      border: 0;
+      border-radius: 8px;
+      background: #f5b400;
+      color: #101820;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; }
+    #result {
+      margin-top: 18px;
+      text-align: center;
+      font-weight: bold;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>NIHIT FITNESS CLUB</h1>
+    <p>MEMBER ATTENDANCE</p>
+
+    <form id="checkinForm">
+      <label for="identifier">Member ID or Mobile Number</label>
+      <input id="identifier" type="text" required
+        placeholder="Enter Member ID or Mobile"
+        autocomplete="username">
+
+      <label for="pin">Personal PIN</label>
+      <input id="pin" type="password" required
+        placeholder="Enter your PIN"
+        inputmode="numeric"
+        maxlength="8"
+        autocomplete="current-password">
+
+      <button id="submitBtn" type="submit">CHECK IN</button>
+    </form>
+
+    <div id="result" role="status"></div>
+  </main>
+
+  <script>
+    const SUPABASE_URL = "https://fuxdsulcdscdfoswehka.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_tPJTQGaKKcj1oeV3p54k5Q_pRjMsmUr";
+
+    const db = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+    const form = document.getElementById("checkinForm");
+    const result = document.getElementById("result");
+    const button = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const identifier = document.getElementById("identifier").value.trim();
+      const pin = document.getElementById("pin").value.trim();
+
+      result.textContent = "Please wait...";
+      result.style.color = "#f5b400";
+      button.disabled = true;
+
+      try {
+        const { data, error } = await db.rpc("member_checkin", {
+          p_identifier: identifier,
+          p_pin: pin
+        });
+
+        if (error) throw error;
+
+        result.textContent = data;
+        result.style.color =
+          data === "Attendance marked successfully" ? "#35d07f" : "#ff7777";
+
+        if (data === "Attendance marked successfully") {
+          form.reset();
+        }
+      } catch (error) {
+        result.textContent = "Check-in failed. Please try again.";
+        result.style.color = "#ff7777";
+        console.error(error);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
