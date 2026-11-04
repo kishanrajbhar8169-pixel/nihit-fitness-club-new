@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;padding:20px;background:#101820;color:white;font-family:Arial}
-.container{max-width:900px;margin:30px auto;background:#1c2935;padding:22px;border-radius:14px}
+.container{max-width:1000px;margin:30px auto;background:#1c2935;padding:22px;border-radius:14px}
 h1{color:#f5b700;text-align:center}
 input,button{width:100%;padding:13px;margin:8px 0;border:0;border-radius:7px;font-size:16px}
 input{background:#101820;color:white;border:1px solid #475569}
@@ -21,6 +21,7 @@ th{background:#334155}
 .table-wrap{overflow-x:auto}
 #dashboard{display:none}
 #message{color:#f5b700;text-align:center;white-space:pre-wrap}
+.section{margin-top:28px}
 </style>
 </head>
 <body>
@@ -37,7 +38,11 @@ th{background:#334155}
 
 <div id="dashboard">
 <button onclick="loadMembers()">REFRESH MEMBERS</button>
+<button onclick="loadAttendance()">REFRESH ATTENDANCE</button>
 <button class="logout" onclick="logout()">LOGOUT</button>
+
+<div class="section">
+<h3>Member List</h3>
 <input id="search" placeholder="Search Name, Member ID or Mobile" oninput="showMembers()">
 <p id="count"></p>
 <div class="table-wrap">
@@ -55,6 +60,27 @@ th{background:#334155}
 </table>
 </div>
 </div>
+
+<div class="section">
+<h3>Attendance Report</h3>
+<p id="attendanceCount">Total Check-ins: 0</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Member ID</th>
+<th>Name</th>
+<th>Mobile</th>
+<th>Check-in Time</th>
+</tr>
+</thead>
+<tbody id="attendanceRows"></tbody>
+</table>
+</div>
+</div>
+</div>
+
 <p id="message"></p>
 </div>
 
@@ -71,7 +97,10 @@ async function login(){
  const btn=document.getElementById("loginBtn");
  const msg=document.getElementById("message");
 
- if(!email || !password){msg.textContent="Enter email and password.";return;}
+ if(!email || !password){
+   msg.textContent="Enter email and password.";
+   return;
+ }
 
  btn.disabled=true;
  msg.textContent="Logging in...";
@@ -80,12 +109,17 @@ async function login(){
 
  btn.disabled=false;
 
- if(error){msg.textContent="Login failed: "+error.message;return;}
+ if(error){
+   msg.textContent="Login failed: "+error.message;
+   return;
+ }
 
  document.getElementById("login").style.display="none";
  document.getElementById("dashboard").style.display="block";
  msg.textContent="";
+
  await loadMembers();
+ await loadAttendance();
 }
 
 async function loadMembers(){
@@ -109,6 +143,7 @@ async function loadMembers(){
 
 function showMembers(){
  const term=document.getElementById("search").value.toLowerCase();
+
  const filtered=members.filter(m=>
   (m.member_id||"").toLowerCase().includes(term) ||
   (m.full_name||"").toLowerCase().includes(term) ||
@@ -126,6 +161,50 @@ function showMembers(){
  <td>${escapeHTML(m.plan||"-")}</td>
  <td>${escapeHTML(m.status||"-")}</td>
  </tr>`).join("");
+}
+
+async function loadAttendance(){
+ const msg=document.getElementById("message");
+ msg.textContent="Loading attendance...";
+
+ const {data,error}=await db
+ .from("attendance")
+ .select(`
+   attendance_date,
+   checkin_at,
+   members (
+     member_id,
+     full_name,
+     mobile
+   )
+ `)
+ .order("attendance_date",{ascending:false})
+ .order("checkin_at",{ascending:false})
+ .limit(500);
+
+ if(error){
+   msg.textContent="Could not load attendance: "+error.message;
+   return;
+ }
+
+ const records=data || [];
+
+ document.getElementById("attendanceCount").textContent=
+ "Total Check-ins: "+records.length;
+
+ document.getElementById("attendanceRows").innerHTML=
+ records.map(a=>{
+   const m=a.members || {};
+   return `<tr>
+     <td>${escapeHTML(a.attendance_date||"-")}</td>
+     <td>${escapeHTML(m.member_id||"-")}</td>
+     <td>${escapeHTML(m.full_name||"-")}</td>
+     <td>${escapeHTML(m.mobile||"-")}</td>
+     <td>${escapeHTML(a.checkin_at ? new Date(a.checkin_at).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata"}) : "-")}</td>
+   </tr>`;
+ }).join("");
+
+ msg.textContent="";
 }
 
 function escapeHTML(value){
