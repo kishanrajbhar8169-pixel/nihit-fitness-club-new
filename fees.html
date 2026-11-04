@@ -50,7 +50,12 @@ a{color:#f5b700}
 <option value="Card">Card</option>
 <option value="Bank Transfer">Bank Transfer</option>
 </select>
-<label>Payment Status</label>
+<label>Payment Type</label>
+<select id="paymentType">
+<option value="regular">Regular Fee</option>
+<option value="renewal">Membership Renewal</option>
+</select>
+ <label>Payment Status</label>
 <select id="status">
 <option value="Paid">Paid</option>
 <option value="Pending">Pending</option>
@@ -139,6 +144,7 @@ async function savePayment(){
  const date=document.getElementById("date").value;
  const mode=document.getElementById("mode").value;
  const status=document.getElementById("status").value;
+ const paymentType=document.getElementById("paymentType").value;
  const msg=document.getElementById("message");
  const btn=document.getElementById("saveBtn");
 
@@ -150,12 +156,13 @@ async function savePayment(){
  btn.disabled=true;
  msg.textContent="Saving payment...";
 
- const {error}=await db.from("payments").insert([{
+const {error}=await db.from("payments").insert([{
   member_id:member,
   amount:amount,
   payment_date:date,
   payment_mode:mode,
-  status:status
+  status:status,
+  is_renewal:paymentType==="renewal"
  }]);
 
  btn.disabled=false;
@@ -210,7 +217,7 @@ async function loadPayments(){
  const pendingRecords=document.getElementById("pendingRecords");
 
  const {data,error}=await db.from("payments")
- .select("id,amount,payment_date,payment_mode,status,members(member_id,full_name,mobile)")
+ .select("id,amount,payment_date,payment_mode,status,is_renewal,renewal_applied_at,members(member_id,full_name,mobile)")
  .order("created_at",{ascending:false})
  .limit(1000);
 
@@ -243,7 +250,10 @@ async function loadPayments(){
    title.textContent=(p.members?.member_id||"Member")+" - "+(p.members?.full_name||"");
 
    const detail=document.createElement("p");
-   detail.textContent="Pending: ₹"+p.amount+" | "+p.payment_date+" | "+p.payment_mode;
+   const paymentType = p.is_renewal ? "Membership Renewal" : "Regular Fee";
+
+detail.textContent =
+ "Pending: ₹"+p.amount+" | "+p.payment_date+" | "+p.payment_mode+" | "+paymentType;
 
    const btn=document.createElement("button");
    btn.className="mark-btn";
@@ -268,7 +278,10 @@ async function loadPayments(){
    title.textContent=(p.members?.member_id||"Member")+" - "+(p.members?.full_name||"");
 
    const detail=document.createElement("p");
-   detail.textContent="₹"+p.amount+" | "+p.payment_date+" | "+p.payment_mode+" | "+p.status;
+   const paymentType = p.is_renewal ? "Membership Renewal" : "Regular Fee";
+
+detail.textContent =
+ "₹"+p.amount+" | "+p.payment_date+" | "+p.payment_mode+" | "+p.status+" | "+paymentType;
 
    div.append(title,detail);
    records.appendChild(div);
