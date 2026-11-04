@@ -138,6 +138,8 @@ ADD MEMBER
  <th>Registration Date</th>
 <th>Mobile</th>
 <th>Plan</th>
+<th>Membership Expiry</th>
+<th>Membership Status</th>
 <th>Status</th>
 <th>Payment</th>
  <th>Action</th>            
@@ -232,7 +234,7 @@ async function loadMembers(){
 
  const {data,error}=await db
  .from("members")
- .select("id,member_id,full_name,mobile,plan,status,created_at,is_active")
+.select("id,member_id,full_name,mobile,plan,status,created_at,is_active,membership_expiry_date")
 .eq("is_active", true)
  .order("created_at",{ascending:false});
 
@@ -307,21 +309,42 @@ function showMembers(){
      }
    }
 
+     const expiryDate = m.membership_expiry_date || "";
+   const today = new Intl.DateTimeFormat("en-CA", {
+     timeZone: "Asia/Kolkata"
+   }).format(new Date());
+
+   let membershipStatus = "Not Set";
+   let membershipClass = "no-record";
+
+   if(expiryDate){
+     if(today > expiryDate){
+       membershipStatus = "Expired";
+       membershipClass = "pending";
+     }else{
+       membershipStatus = "Active";
+       membershipClass = "paid";
+     }
+   }
+
+   const expiryDisplay = expiryDate
+     ? new Date(expiryDate + "T00:00:00").toLocaleDateString("en-IN")
+     : "-";
+
    return `<tr>
      <td>${escapeHTML(m.member_id)}</td>
      <td>${escapeHTML(m.full_name)}</td>
      <td>${escapeHTML(m.created_at ? new Date(m.created_at).toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata"}) : "-")}</td>
      <td>${escapeHTML(m.mobile)}</td>
      <td>${escapeHTML(m.plan||"-")}</td>
+     <td>${escapeHTML(expiryDisplay)}</td>
+     <td><span class="${membershipClass}">${membershipStatus}</span></td>
      <td>${escapeHTML(m.status||"-")}</td>
      <td>${paymentHTML}</td>
      <td><button onclick="deactivateMember('${m.id}')">DEACTIVATE</button></td>
    </tr>`;
  }).join("");
 }
-
- 
-
  
  
 
