@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,35 +17,43 @@ button{background:#f5b700;color:#101820;font-weight:bold;border:0;cursor:pointer
 button:disabled{opacity:.6}
 #message{text-align:center;margin-top:15px;line-height:1.5}
 .small{text-align:center;font-size:12px;color:#94a3b8}
+label{display:block;margin-top:12px;color:#f5b700}
 </style>
 </head>
 <body>
- <div style="max-width:480px;margin:0 auto 20px;background:#1c2935;padding:20px;border-radius:16px;text-align:center;">
-  <h2 style="color:#f5b700;">NIHIT FITNESS CLUB</h2>
-  <p>Management Menu</p>
 
-  <a href="admin.html" style="display:block;background:#f5b700;color:#101820;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">ADMIN DASHBOARD</a>
+<div style="max-width:480px;margin:0 auto 20px;background:#1c2935;padding:20px;border-radius:16px;text-align:center;">
+<h2 style="color:#f5b700;">NIHIT FITNESS CLUB</h2>
+<p>Management Menu</p>
+<a href="admin.html" style="display:block;background:#f5b700;color:#101820;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">ADMIN DASHBOARD</a>
+<a href="fees.html" style="display:block;background:#f5b700;color:#101820;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">FEES MANAGEMENT</a>
+<a href="checkin.html" style="display:block;background:#f5b700;color:#101820;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">MEMBER QR CHECK-IN</a>
+<a href="#registerForm" style="display:block;background:#334155;color:white;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">NEW MEMBER REGISTRATION</a>
+</div>
 
-  <a href="fees.html" style="display:block;background:#f5b700;color:#101820;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">FEES MANAGEMENT</a>
-
-  <a href="checkin.html" style="display:block;background:#f5b700;color:#101820;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">MEMBER QR CHECK-IN</a>
-
-  <a href="#registerForm" style="display:block;background:#334155;color:white;padding:14px;margin:10px 0;border-radius:8px;text-decoration:none;font-weight:bold;">NEW MEMBER REGISTRATION</a>
-</div> 
 <div class="container">
 <h1>NIHIT FITNESS CLUB</h1>
 <p>New Member Registration</p>
 
 <form id="registerForm">
+<label>Full Name</label>
 <input id="name" placeholder="Full Name" required minlength="2">
+
+<label>Mobile Number</label>
 <input id="mobile" placeholder="10 Digit Mobile Number" inputmode="numeric" maxlength="10" required>
+
+<label>Age</label>
 <input id="age" type="number" placeholder="Age" min="10" max="100">
+
+<label>Gender</label>
 <select id="gender">
 <option value="">Select Gender</option>
 <option>Male</option>
 <option>Female</option>
 <option>Other</option>
 </select>
+
+<label>Membership Plan</label>
 <select id="plan" required>
 <option value="">Select Membership Plan</option>
 <option>Monthly (Standard)</option>
@@ -54,7 +61,29 @@ button:disabled{opacity:.6}
 <option>Half Yearly</option>
 <option>Yearly</option>
 </select>
+
+<label>Personal PIN</label>
 <input id="pin" type="password" placeholder="Create Personal PIN (4-8 digits)" inputmode="numeric" maxlength="8" required>
+
+<label>Payment Mode</label>
+<select id="paymentMode" required>
+<option value="">Select Payment Mode</option>
+<option>Cash</option>
+<option>UPI</option>
+<option>Card</option>
+<option>Bank Transfer</option>
+</select>
+
+<label>Payment Status</label>
+<select id="paymentStatus" required>
+<option value="">Select Payment Status</option>
+<option>Paid</option>
+<option>Pending</option>
+</select>
+
+<label>Payment Amount (₹)</label>
+<input id="paymentAmount" type="number" placeholder="Enter Payment Amount" min="0.01" step="0.01" required>
+
 <button id="submitBtn" type="submit">REGISTER NOW</button>
 </form>
 
@@ -81,6 +110,9 @@ document.getElementById("registerForm").addEventListener("submit", async functio
   const gender = document.getElementById("gender").value || null;
   const plan = document.getElementById("plan").value;
   const pin = document.getElementById("pin").value;
+  const paymentMode = document.getElementById("paymentMode").value;
+  const paymentStatus = document.getElementById("paymentStatus").value;
+  const paymentAmount = Number(document.getElementById("paymentAmount").value);
 
   if(!/^[0-9]{10}$/.test(mobile)){
     message.textContent = "Please enter a valid 10 digit mobile number.";
@@ -92,31 +124,40 @@ document.getElementById("registerForm").addEventListener("submit", async functio
     return;
   }
 
+  if(!Number.isFinite(paymentAmount) || paymentAmount <= 0){
+    message.textContent = "Please enter a valid payment amount.";
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = "PLEASE WAIT...";
   message.textContent = "";
 
-  const {data, error} = await db.rpc("register_member", {
-    p_full_name: fullName,
-    p_mobile: mobile,
-    p_pin: pin,
-    p_plan: plan,
-    p_age: age,
-    p_gender: gender
-  });
+  try {
+    const {data, error} = await db.rpc("register_member", {
+      p_full_name: fullName,
+      p_mobile: mobile,
+      p_pin: pin,
+      p_plan: plan,
+      p_age: age,
+      p_gender: gender,
+      p_payment_mode: paymentMode,
+      p_payment_status: paymentStatus,
+      p_payment_amount: paymentAmount
+    });
 
-  btn.disabled = false;
-  btn.textContent = "REGISTER NOW";
+    if(error) throw error;
 
-  if(error){
-    message.textContent = error.message.includes("duplicate")
-      ? "This mobile number is already registered."
-      : "Registration failed: " + error.message;
-    return;
+    message.innerHTML = "Registration Successful!<br>Your Member ID: <strong>" + data + "</strong><br>Payment Status: " + paymentStatus;
+
+    document.getElementById("registerForm").reset();
+
+  } catch(error) {
+    message.textContent = "Registration failed: " + error.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "REGISTER NOW";
   }
-
-  message.innerHTML = "Registration Successful!<br>Your Member ID: <strong>" + data + "</strong>";
-  document.getElementById("registerForm").reset();
 });
 </script>
 </body>
