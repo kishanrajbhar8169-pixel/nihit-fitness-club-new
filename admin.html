@@ -22,6 +22,9 @@ th{background:#334155}
 #dashboard{display:none}
 #message{color:#f5b700;text-align:center;white-space:pre-wrap}
 .section{margin-top:28px}
+.paid{color:#22c55e;font-weight:bold}
+.pending{color:#f87171;font-weight:bold}
+.no-record{color:#fbbf24;font-weight:bold}
 </style>
 </head>
 <body>
@@ -54,6 +57,7 @@ th{background:#334155}
 <th>Mobile</th>
 <th>Plan</th>
 <th>Status</th>
+<th>Payment</th>
 </tr>
 </thead>
 <tbody id="memberRows"></tbody>
@@ -124,11 +128,11 @@ async function login(){
 
 async function loadMembers(){
  const msg=document.getElementById("message");
- msg.textContent="Loading members...";
+ msg.textContent="Loading members and payment status...";
 
  const {data,error}=await db
  .from("members")
- .select("member_id,full_name,mobile,plan,status,created_at")
+ .select("id,member_id,full_name,mobile,plan,status,created_at")
  .order("created_at",{ascending:false});
 
  if(error){
@@ -136,7 +140,31 @@ async function loadMembers(){
    return;
  }
 
- members=data || [];
+ const {data:paymentData,error:paymentError}=await db
+ .from("payments")
+ .select("member_id,status,amount,payment_date,created_at")
+ .order("created_at",{ascending:false});
+
+ if(paymentError){
+   msg.textContent="Members loaded, but payment status could not be loaded: "+paymentError.message;
+   members=data || [];
+   showMembers();
+   return;
+ }
+
+ const latestPayments={};
+
+ (paymentData || []).forEach(p=>{
+   if(!latestPayments[p.member_id]){
+     latestPayments[p.member_id]=p;
+   }
+ });
+
+ members=(data || []).map(m=>({
+   ...m,
+   payment:latestPayments[m.id] || null
+ }));
+
  msg.textContent="";
  showMembers();
 }
@@ -154,13 +182,31 @@ function showMembers(){
  "Total Members: "+filtered.length;
 
  document.getElementById("memberRows").innerHTML=
- filtered.map(m=>`<tr>
- <td>${escapeHTML(m.member_id)}</td>
- <td>${escapeHTML(m.full_name)}</td>
- <td>${escapeHTML(m.mobile)}</td>
- <td>${escapeHTML(m.plan||"-")}</td>
- <td>${escapeHTML(m.status||"-")}</td>
- </tr>`).join("");
+ filtered.map(m=>{
+   const payment=m.payment;
+   let paymentHTML='<span class="no-record">No Record</span>';
+
+   if(payment){
+     const status=(payment.status||"").toLowerCase();
+
+     if(status==="paid"){
+       paymentHTML='<span class="paid">Paid</span>';
+     }else if(status==="pending"){
+       paymentHTML='<span class="pending">Pending</span>';
+     }else{
+       paymentHTML='<span class="no-record">'+escapeHTML(payment.status||"Unknown")+'</span>';
+     }
+   }
+
+   return `<tr>
+     <td>${escapeHTML(m.member_id)}</td>
+     <td>${escapeHTML(m.full_name)}</td>
+     <td>${escapeHTML(m.mobile)}</td>
+     <td>${escapeHTML(m.plan||"-")}</td>
+     <td>${escapeHTML(m.status||"-")}</td>
+     <td>${paymentHTML}</td>
+   </tr>`;
+ }).join("");
 }
 
 async function loadAttendance(){
