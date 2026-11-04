@@ -71,6 +71,20 @@ th{background:#334155}
 <h3>Attendance Report</h3>
 <p id="attendanceCount">Total Check-ins: 0</p>
  <p id="deactivatedCount">Deactivated Members: 0</p>
+ <h3>Deactivated Members</h3>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Member ID</th>
+<th>Name</th>
+<th>Mobile</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="inactiveMemberRows"></tbody>
+</table>
+</div>
 <div class="table-wrap">
 <table>
 <thead>
@@ -128,6 +142,7 @@ async function login(){
  await loadMembers();
  await loadAttendance();
  await loadDeactivatedCount();
+ await loadInactiveMembers();
 }
 
 async function loadMembers(){
@@ -230,8 +245,49 @@ function showMembers(){
  
 
 
+async function loadInactiveMembers(){
+ const {data,error}=await db
+   .from("members")
+   .select("id,member_id,full_name,mobile")
+   .eq("is_active",false)
+   .order("created_at",{ascending:false});
 
-async function loadAttendance(){
+ if(error){
+   alert("Could not load inactive members: "+error.message);
+   return;
+ }
+
+ document.getElementById("inactiveMemberRows").innerHTML=
+ (data || []).map(m=>`
+   <tr>
+     <td>${escapeHTML(m.member_id)}</td>
+     <td>${escapeHTML(m.full_name)}</td>
+     <td>${escapeHTML(m.mobile)}</td>
+     <td><button onclick="reactivateMember('${m.id}')">REACTIVATE</button></td>
+   </tr>
+ `).join("");
+}
+async function reactivateMember(id){
+ if(!confirm("Are you sure you want to reactivate this member?")){
+   return;
+ }
+
+ const {error}=await db
+   .from("members")
+   .update({is_active:true})
+   .eq("id",id);
+
+ if(error){
+   alert("Could not reactivate member: "+error.message);
+   return;
+ }
+
+ alert("Member reactivated successfully.");
+ await loadMembers();
+ await loadDeactivatedCount();
+ await loadInactiveMembers();
+}
+ async function loadAttendance(){
  const msg=document.getElementById("message");
  msg.textContent="Loading attendance...";
 
@@ -314,6 +370,7 @@ async function loadDeactivatedCount(){
  alert("Member deactivated successfully.");
  await loadMembers();
   await loadDeactivatedCount();
+  await loadInactiveMembers();
 }
 async function logout(){
  await db.auth.signOut();
