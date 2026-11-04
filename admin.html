@@ -59,6 +59,7 @@ th{background:#334155}
 <th>Plan</th>
 <th>Status</th>
 <th>Payment</th>
+ <th>Action</th>            
 </tr>
 </thead>
 <tbody id="memberRows"></tbody>
@@ -133,7 +134,8 @@ async function loadMembers(){
 
  const {data,error}=await db
  .from("members")
- .select("id,member_id,full_name,mobile,plan,status,created_at")
+ .select("id,member_id,full_name,mobile,plan,status,created_at,is_active")
+.eq("is_active", true)
  .order("created_at",{ascending:false});
 
  if(error){
@@ -215,6 +217,7 @@ function showMembers(){
      <td>${escapeHTML(m.plan||"-")}</td>
      <td>${escapeHTML(m.status||"-")}</td>
      <td>${paymentHTML}</td>
+     <td><button onclick="deactivateMember('${m.id}')">DEACTIVATE</button></td>
    </tr>`;
  }).join("");
 }
@@ -276,7 +279,24 @@ function escapeHTML(value){
  '"':"&quot;","'":"&#39;"
  }[c]));
 }
+async function deactivateMember(id){
+ if(!confirm("Are you sure you want to deactivate this member?")){
+   return;
+ }
 
+ const {error}=await db
+   .from("members")
+   .update({is_active:false})
+   .eq("id",id);
+
+ if(error){
+   alert("Could not deactivate member: "+error.message);
+   return;
+ }
+
+ alert("Member deactivated successfully.");
+ await loadMembers();
+}
 async function logout(){
  await db.auth.signOut();
  members=[];
