@@ -70,6 +70,7 @@ th{background:#334155}
 <div class="section">
 <h3>Attendance Report</h3>
 <p id="attendanceCount">Total Check-ins: 0</p>
+ <p id="deactivatedCount">Deactivated Members: 0</p>
 <div class="table-wrap">
 <table>
 <thead>
@@ -126,6 +127,7 @@ async function login(){
 
  await loadMembers();
  await loadAttendance();
+ await loadDeactivatedCount();
 }
 
 async function loadMembers(){
@@ -279,7 +281,22 @@ function escapeHTML(value){
  '"':"&quot;","'":"&#39;"
  }[c]));
 }
-async function deactivateMember(id){
+async function loadDeactivatedCount(){
+ const {count,error}=await db
+   .from("members")
+   .select("id",{count:"exact",head:true})
+   .eq("is_active",false);
+
+ if(error){
+   document.getElementById("deactivatedCount").textContent=
+   "Deactivated Members: Error";
+   return;
+ }
+
+ document.getElementById("deactivatedCount").textContent=
+ "Deactivated Members: "+count;
+}
+ async function deactivateMember(id){ 
  if(!confirm("Are you sure you want to deactivate this member?")){
    return;
  }
@@ -296,6 +313,7 @@ async function deactivateMember(id){
 
  alert("Member deactivated successfully.");
  await loadMembers();
+  await loadDeactivatedCount();
 }
 async function logout(){
  await db.auth.signOut();
