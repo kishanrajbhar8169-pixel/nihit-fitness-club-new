@@ -170,8 +170,16 @@ async function loadMembers(){
  showMembers();
 }
 
+
 function showMembers(){
  const term=document.getElementById("search").value.toLowerCase();
+
+ members.sort((a,b)=>{
+   const order = {pending:0, paid:1};
+   const statusA = (a.payment?.status || "no-record").toLowerCase();
+   const statusB = (b.payment?.status || "no-record").toLowerCase();
+   return (order[statusA] ?? 2) - (order[statusB] ?? 2);
+ });
 
  const filtered=members.filter(m=>
   (m.member_id||"").toLowerCase().includes(term) ||
@@ -210,6 +218,13 @@ function showMembers(){
    </tr>`;
  }).join("");
 }
+
+ 
+
+ 
+ 
+
+
 
 async function loadAttendance(){
  const msg=document.getElementById("message");
