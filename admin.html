@@ -168,6 +168,24 @@ ADD MEMBER
 <tbody id="inactiveMemberRows"></tbody>
 </table>
 </div>
+ <p id="expiredCount">Expired Members: 0</p>
+
+<h3>Expired Members</h3>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Member ID</th>
+<th>Name</th>
+<th>Mobile</th>
+<th>Plan</th>
+<th>Expiry Date</th>
+</tr>
+</thead>
+<tbody id="expiredMemberRows"></tbody>
+</table>
+</div>
 <div class="table-wrap">
 <table>
 <thead>
@@ -226,6 +244,7 @@ async function login(){
  await loadAttendance();
  await loadDeactivatedCount();
  await loadInactiveMembers();
+ await loadExpiredMembers();
 }
 
 async function loadMembers(){
@@ -348,7 +367,41 @@ function showMembers(){
  
  
 
+async function loadExpiredMembers(){
 
+ const today = new Intl.DateTimeFormat("en-CA", {
+   timeZone: "Asia/Kolkata"
+ }).format(new Date());
+
+ const {data,error} = await db
+   .from("members")
+   .select("member_id,full_name,mobile,plan,membership_expiry_date")
+   .eq("is_active",true)
+   .lt("membership_expiry_date",today)
+   .order("membership_expiry_date",{ascending:true});
+
+ if(error){
+   document.getElementById("expiredCount").textContent =
+   "Expired Members: Error";
+   return;
+ }
+
+ const expired = data || [];
+
+ document.getElementById("expiredCount").textContent =
+ "Expired Members: " + expired.length;
+
+ document.getElementById("expiredMemberRows").innerHTML =
+ expired.map(m=>`
+   <tr>
+     <td>${escapeHTML(m.member_id)}</td>
+     <td>${escapeHTML(m.full_name)}</td>
+     <td>${escapeHTML(m.mobile)}</td>
+     <td>${escapeHTML(m.plan)}</td>
+     <td>${escapeHTML(m.membership_expiry_date)}</td>
+   </tr>
+ `).join("");
+}
 async function loadInactiveMembers(){
  const {data,error}=await db
    .from("members")
