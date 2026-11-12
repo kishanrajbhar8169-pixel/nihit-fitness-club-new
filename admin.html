@@ -65,6 +65,9 @@ th{background:#334155}
 <div id="dashboard">
 <button onclick="loadMembers()">REFRESH MEMBERS</button>
 <button onclick="loadAttendance()">REFRESH ATTENDANCE</button>
+ <button onclick="loadTodayAttendance()">
+TODAY'S ATTENDANCE
+</button>
  <button onclick="window.location.href='fees.html'">
 FEES
 </button>
@@ -155,6 +158,27 @@ ADD MEMBER
 
 <div class="section">
 <h3>Attendance Report</h3>
+ <div id="todayAttendanceSection"
+     style="display:none;background:#101820;padding:15px;border-radius:10px;margin:15px 0;">
+
+  <h3 style="color:#f5b700;">TODAY'S ATTENDANCE</h3>
+
+  <p id="todayAttendanceCount">Today's Check-ins: 0</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Member ID</th>
+          <th>Name</th>
+          <th>Mobile</th>
+          <th>Check-in Time</th>
+        </tr>
+      </thead>
+      <tbody id="todayAttendanceRows"></tbody>
+    </table>
+  </div>
+</div>
 <p id="attendanceCount">Total Check-ins: 0</p>
  <p id="deactivatedCount">Deactivated Members: 0</p>
  <h3>Deactivated Members</h3>
@@ -490,7 +514,65 @@ async function reactivateMember(id){
 
  msg.textContent="";
 }
+async function loadTodayAttendance(){
 
+ const msg = document.getElementById("message");
+
+ const today = new Intl.DateTimeFormat("en-CA", {
+   timeZone: "Asia/Kolkata"
+ }).format(new Date());
+
+ msg.textContent = "Loading today's attendance...";
+
+ const {data,error} = await db
+   .from("attendance")
+   .select(`
+     attendance_date,
+     checkin_at,
+     members (
+       member_id,
+       full_name,
+       mobile
+     )
+   `)
+   .eq("attendance_date", today)
+   .order("checkin_at", {ascending:false});
+
+ if(error){
+   msg.textContent = "Could not load today's attendance: " + error.message;
+   return;
+ }
+
+ const records = data || [];
+
+ document.getElementById("todayAttendanceCount").textContent =
+   "Today's Total Check-ins: " + records.length;
+
+ document.getElementById("todayAttendanceRows").innerHTML =
+   records.map(a => {
+     const m = a.members || {};
+
+     return `<tr>
+       <td>${escapeHTML(m.member_id || "-")}</td>
+       <td>${escapeHTML(m.full_name || "-")}</td>
+       <td>${escapeHTML(m.mobile || "-")}</td>
+       <td>${escapeHTML(
+         a.checkin_at
+           ? new Date(a.checkin_at).toLocaleTimeString("en-IN", {
+               timeZone:"Asia/Kolkata",
+               hour:"2-digit",
+               minute:"2-digit",
+               second:"2-digit"
+             })
+           : "-"
+       )}</td>
+     </tr>`;
+   }).join("");
+
+ document.getElementById("todayAttendanceSection").style.display = "block";
+
+ msg.textContent = "";
+}
 function escapeHTML(value){
  return String(value??"").replace(/[&<>"']/g,c=>({
  "&":"&amp;","<":"&lt;",">":"&gt;",
