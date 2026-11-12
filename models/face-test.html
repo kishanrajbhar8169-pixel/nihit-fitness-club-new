@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NIHIT FITNESS CLUB - Face Test</title>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+<style>
+body{margin:0;padding:20px;background:#101820;color:white;font-family:Arial;text-align:center}
+.container{max-width:650px;margin:auto;background:#1c2935;padding:20px;border-radius:12px}
+h2{color:#f5b700}
+video{width:100%;max-width:480px;background:#000;border-radius:12px;transform:scaleX(-1)}
+button{width:100%;padding:14px;margin:8px 0;border:0;border-radius:7px;background:#f5b700;font-size:16px;font-weight:bold}
+#status{white-space:pre-wrap;color:#f5b700}
+#result{padding:12px;background:#101820;border-radius:8px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="container">
+<h2>NIHIT FITNESS CLUB</h2>
+<h3>Face Recognition Test</h3>
+
+<video id="video" autoplay muted playsinline></video>
+
+<p id="status">Starting...</p>
+<button id="startBtn">START CAMERA</button>
+<button id="saveBtn" disabled>CAPTURE TEST FACE</button>
+<button id="matchBtn" disabled>CHECK FACE MATCH</button>
+<button id="resetBtn">RESET TEST</button>
+
+<h3>Test Result</h3>
+<div id="result">No face captured yet.</div>
+</div>
+
+<script>
+const video = document.getElementById("video");
+const statusBox = document.getElementById("status");
+const resultBox = document.getElementById("result");
+const saveBtn = document.getElementById("saveBtn");
+const matchBtn = document.getElementById("matchBtn");
+
+let human;
+let cameraStream;
+let savedDescriptor = null;
+let running = false;
+
+const config = {
+  backend: "webgl",
+  modelBasePath: "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/",
+  face: {
+    enabled: true,
+    detector: { rotation: true, maxDetected: 1 },
+    description: { enabled: true },
+    mesh: { enabled: false },
+    iris: { enabled: false },
+    emotion: { enabled: false },
+    antispoof: { enabled: false },
+    liveness: { enabled: false }
+  },
+  body: { enabled: false },
+  hand: { enabled: false },
+  object: { enabled: false },
+  gesture: { enabled: false }
+};
+
+function cosineDistance(a,b){
+  let dot=0,aa=0,bb=0;
+  for(let i=0;i<a.length;i++){
+    dot+=a[i]*b[i];
+    aa+=a[i]*a[i];
+    bb+=b[i]*b[i];
+  }
+  if(!aa || !bb) return 1;
+  return 1-(dot/(Math.sqrt(aa)*Math.sqrt(bb)));
+}
+
+async function startCamera(){
+  try{
+    statusBox.textContent="Loading face recognition model...";
+    if(!human){
+      human = new Human(config);
+      await human.load();
+      await human.warmup();
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"user"},
+      audio:false
+    });
+
+    video.srcObject=cameraStream;
+    await video.play();
+
+    running=true;
+    statusBox.textContent="Camera ready. Look directly at the camera.";
+    saveBtn.disabled=false;
+    detectFace();
+  }catch(error){
+    statusBox.textContent="Camera or model error: "+error.message;
+  }
+}
+
+async function detectFace(){
+  if(!running) return;
+
+  try{
+    const result=await human.detect(video);
+    const face=result.face && result.face[0];
+
+    if(face && face.embedding && face.embedding.length){
+      statusBox.textContent="Face detected. Keep your face centered.";
+    }else{
+      statusBox.textContent="No clear face detected. Adjust your position.";
+    }
+  }catch(error){
+    statusBox.textContent="Detection error: "+error.message;
+  }
+
+  if(running) requestAnimationFrame(detectFace);
+}
+
+async function captureFace(){
+  if(!human || video.readyState<2){
+    statusBox.textContent="Start the camera first.";
+    return;
+  }
+
+  saveBtn.disabled=true;
+  statusBox.textContent="Capturing face...";
+
+  try{
+    const result=await human.detect(video);
+    const face=result.face && result.face[0];
+
+    if(!face || !face.embedding || !face.embedding.length){
+      throw new Error("Face not detected. Look at the camera and try again.");
+    }
+
+    savedDescriptor=Array.from(face.embedding);
+    matchBtn.disabled=false;
+
+    resultBox.textContent=
+      "Test face captured successfully.\n"+
+      "Descriptor length: "+savedDescriptor.length+
+      "\nStored only temporarily in this page.";
+    statusBox.textContent="Capture successful. Now check the match.";
+  }catch(error){
+    statusBox.textContent=error.message;
+  }finally{
+    saveBtn.disabled=false;
+  }
+}
+
+async function checkMatch(){
+  if(!savedDescriptor) return;
+
+  try{
+    const result=await human.detect(video);
+    const face=result.face && result.face[0];
+
+    if(!face || !face.embedding){
+      resultBox.textContent="No face detected. Try again.";
+      return;
+    }
+
+    const distance=cosineDistance(
+      savedDescriptor,
+      Array.from(face.embedding)
+    );
+
+    resultBox.textContent=
+      "Face comparison completed.\n"+
+      "Cosine distance: "+distance.toFixed(4)+
+      "\nThis is an experimental result, not verified identity.";
+
+  }catch(error){
+    resultBox.textContent="Matching error: "+error.message;
+  }
+}
+
+function resetTest(){
+  savedDescriptor=null;
+  matchBtn.disabled=true;
+  resultBox.textContent="No face captured yet.";
+  statusBox.textContent="Test reset. You can capture again.";
+}
+
+document.getElementById("startBtn").addEventListener("click",startCamera);
+saveBtn.addEventListener("click",captureFace);
+matchBtn.addEventListener("click",checkMatch);
+document.getElementById("resetBtn").addEventListener("click",resetTest);
+
+window.addEventListener("beforeunload",()=>{
+  running=false;
+  if(cameraStream){
+    cameraStream.getTracks().forEach(track=>track.stop());
+  }
+});
+</script>
+</body>
+</html>
