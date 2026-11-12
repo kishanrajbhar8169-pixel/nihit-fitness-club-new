@@ -1,10 +1,10 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Member Check-in | NIHIT FITNESS CLUB</title>
+  <title>Member Dashboard | NIHIT FITNESS CLUB</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; }
@@ -20,8 +20,8 @@
     }
     .card {
       width: 100%;
-      max-width: 420px;
-      padding: 28px;
+      max-width: 430px;
+      padding: 25px;
       background: #1c2935;
       border-radius: 16px;
       box-shadow: 0 10px 35px #0006;
@@ -40,31 +40,52 @@
     }
     button {
       width: 100%;
-      margin-top: 22px;
+      margin-top: 15px;
       padding: 14px;
       border: 0;
       border-radius: 8px;
-      background: #f5b400;
       color: #101820;
-      font-size: 17px;
+      font-size: 16px;
       font-weight: bold;
       cursor: pointer;
     }
-    button:disabled { opacity: .6; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #checkinBtn { background: #f5b400; }
+    #membershipBtn { background: #35d07f; }
     #result {
       margin-top: 18px;
       text-align: center;
       font-weight: bold;
       line-height: 1.5;
     }
+    #membershipDetails {
+      display: none;
+      margin-top: 20px;
+      padding: 16px;
+      background: #101820;
+      border-radius: 10px;
+      line-height: 1.8;
+    }
+    .item {
+      padding: 8px 0;
+      border-bottom: 1px solid #394653;
+      overflow-wrap: anywhere;
+    }
+    .value { color: #f5b400; font-weight: bold; }
+    #membershipStatus {
+      text-align: center;
+      font-size: 19px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
   <main class="card">
     <h1>NIHIT FITNESS CLUB</h1>
-    <p>MEMBER ATTENDANCE</p>
+    <p>MEMBER DASHBOARD</p>
 
-    <form id="checkinForm">
+    <form id="memberForm">
       <label for="identifier">Member ID or Mobile Number</label>
       <input id="identifier" type="text" required
         placeholder="Enter Member ID or Mobile"
@@ -75,12 +96,23 @@
         placeholder="Enter your PIN"
         inputmode="numeric"
         maxlength="8"
+        pattern="[0-9]{4,8}"
         autocomplete="current-password">
 
-      <button id="submitBtn" type="submit">CHECK IN</button>
+      <button id="checkinBtn" type="submit">CHECK IN</button>
+      <button id="membershipBtn" type="button">MY MEMBERSHIP</button>
     </form>
 
-    <div id="result" role="status"></div>
+    <div id="result" role="status" aria-live="polite"></div>
+
+    <section id="membershipDetails">
+      <div id="membershipStatus"></div>
+      <div class="item">Name: <span class="value" id="memberName"></span></div>
+      <div class="item">Member ID: <span class="value" id="memberId"></span></div>
+      <div class="item">Plan: <span class="value" id="memberPlan"></span></div>
+      <div class="item">Expiry Date: <span class="value" id="expiryDate"></span></div>
+      <div class="item">Days: <span class="value" id="membershipDays"></span></div>
+    </section>
   </main>
 
   <script>
@@ -92,19 +124,45 @@
       SUPABASE_KEY
     );
 
-    const form = document.getElementById("checkinForm");
+    const form = document.getElementById("memberForm");
     const result = document.getElementById("result");
-    const button = document.getElementById("submitBtn");
+    const checkinBtn = document.getElementById("checkinBtn");
+    const membershipBtn = document.getElementById("membershipBtn");
+    const details = document.getElementById("membershipDetails");
 
+    function getCredentials() {
+      return {
+        identifier: document.getElementById("identifier").value.trim(),
+        pin: document.getElementById("pin").value.trim()
+      };
+    }
+
+    function validCredentials(identifier, pin) {
+      if (!identifier || !/^[0-9]{4,8}$/.test(pin)) {
+        result.textContent = "Please enter your Member ID/Mobile Number and valid 4–8 digit PIN.";
+        result.style.color = "#ff7777";
+        return false;
+      }
+      return true;
+    }
+
+    function showMessage(message, color) {
+      result.textContent = message;
+      result.style.color = color;
+    }
+
+    // Attendance: existing function is unchanged
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      const identifier = document.getElementById("identifier").value.trim();
-      const pin = document.getElementById("pin").value.trim();
+      const { identifier, pin } = getCredentials();
+      details.style.display = "none";
 
-      result.textContent = "Please wait...";
-      result.style.color = "#f5b400";
-      button.disabled = true;
+      if (!validCredentials(identifier, pin)) return;
+
+      checkinBtn.disabled = true;
+      membershipBtn.disabled = true;
+      showMessage("Checking attendance...", "#f5b400");
 
       try {
         const { data, error } = await db.rpc("member_checkin", {
@@ -114,21 +172,99 @@
 
         if (error) throw error;
 
-        result.textContent = data;
-        result.style.color =
-          data === "Attendance marked successfully" ? "#35d07f" : "#ff7777";
+        showMessage(
+          data,
+          data === "Attendance marked successfully" ? "#35d07f" : "#ff7777"
+        );
 
         if (data === "Attendance marked successfully") {
-          form.reset();
+          document.getElementById("pin").value = "";
         }
       } catch (error) {
-        result.textContent = "Check-in failed. Please try again.";
-        result.style.color = "#ff7777";
         console.error(error);
+        showMessage("Check-in failed. Please try again.", "#ff7777");
       } finally {
-        button.disabled = false;
+        checkinBtn.disabled = false;
+        membershipBtn.disabled = false;
+      }
+    });
+
+    // Membership status
+    membershipBtn.addEventListener("click", async () => {
+      const { identifier, pin } = getCredentials();
+      details.style.display = "none";
+
+      if (!validCredentials(identifier, pin)) return;
+
+      checkinBtn.disabled = true;
+      membershipBtn.disabled = true;
+      showMessage("Checking membership...", "#f5b400");
+
+      try {
+        const { data, error } = await db.rpc("member_membership_status", {
+          p_identifier: identifier,
+          p_pin: pin
+        });
+
+        if (error) throw error;
+
+        if (!data || data.success !== true) {
+          showMessage(
+            data?.message || "Membership details not found.",
+            "#ff7777"
+          );
+          return;
+        }
+
+        document.getElementById("memberName").textContent = data.full_name || "-";
+        document.getElementById("memberId").textContent = data.member_id || "-";
+        document.getElementById("memberPlan").textContent = data.plan || "-";
+
+        if (data.expiry_date) {
+          const parts = String(data.expiry_date).slice(0, 10).split("-");
+          const date = new Date(
+            Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])
+          );
+          document.getElementById("expiryDate").textContent =
+            date.toLocaleDateString("en-IN");
+        } else {
+          document.getElementById("expiryDate").textContent = "Not available";
+        }
+
+        const days = data.days_remaining;
+        const statusBox = document.getElementById("membershipStatus");
+        const daysBox = document.getElementById("membershipDays");
+
+        if (days === null || days === undefined) {
+          statusBox.textContent = "EXPIRY DATE UNAVAILABLE";
+          statusBox.style.color = "#ffb84d";
+          daysBox.textContent = "Not available";
+        } else if (Number(days) < 0) {
+          statusBox.textContent = "MEMBERSHIP EXPIRED";
+          statusBox.style.color = "#ff7777";
+          daysBox.textContent = Math.abs(Number(days)) + " days expired";
+        } else if (Number(days) === 0) {
+          statusBox.textContent = "LAST DAY OF MEMBERSHIP";
+          statusBox.style.color = "#ffb84d";
+          daysBox.textContent = "0 days remaining";
+        } else {
+          statusBox.textContent = "MEMBERSHIP ACTIVE";
+          statusBox.style.color = "#35d07f";
+          daysBox.textContent = Number(days) + " days remaining";
+        }
+
+        details.style.display = "block";
+        showMessage("Membership details found.", "#35d07f");
+
+      } catch (error) {
+        console.error(error);
+        showMessage("Unable to check membership. Please try again.", "#ff7777");
+      } finally {
+        checkinBtn.disabled = false;
+        membershipBtn.disabled = false;
       }
     });
   </script>
 </body>
 </html>
+```
