@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Membership | NIHIT FITNESS CLUB</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;display:grid;place-items:center;
+  padding:20px;background:#101820;color:white;
+  font-family:Arial,sans-serif
+}
+.card{
+  width:100%;max-width:430px;padding:25px;
+  background:#1c2935;border-radius:16px;
+  box-shadow:0 10px 35px #0006
+}
+h1{text-align:center;color:#f5b400;font-size:25px}
+.subtitle{text-align:center;color:#cbd5df}
+label{display:block;margin:18px 0 7px}
+input{
+  width:100%;padding:14px;border:1px solid #526170;
+  border-radius:8px;background:#101820;color:white;font-size:16px
+}
+button{
+  width:100%;margin-top:22px;padding:14px;border:0;
+  border-radius:8px;background:#f5b400;color:#101820;
+  font-size:17px;font-weight:bold;cursor:pointer
+}
+button:disabled{opacity:.6}
+#message{text-align:center;margin-top:15px;line-height:1.5}
+#details{
+  display:none;margin-top:20px;padding:17px;
+  background:#101820;border-radius:10px;line-height:1.8
+}
+.item{border-bottom:1px solid #394653;padding:8px 0}
+.value{color:#f5b400;font-weight:bold}
+.status{font-size:20px;font-weight:bold;text-align:center;margin:15px 0}
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>NIHIT FITNESS CLUB</h1>
+  <p class="subtitle">CHECK YOUR MEMBERSHIP STATUS</p>
+
+  <form id="membershipForm">
+    <label for="identifier">Member ID or Mobile Number</label>
+    <input id="identifier" type="text" required
+      placeholder="Enter Member ID or Mobile Number">
+
+    <label for="pin">Personal PIN</label>
+    <input id="pin" type="password" required
+      inputmode="numeric" maxlength="8"
+      pattern="[0-9]{4,8}" placeholder="Enter your PIN">
+
+    <button id="submitBtn" type="submit">CHECK MEMBERSHIP</button>
+  </form>
+
+  <div id="message" role="status"></div>
+
+  <section id="details">
+    <div class="status" id="status"></div>
+    <div class="item">Member Name: <span class="value" id="name"></span></div>
+    <div class="item">Member ID: <span class="value" id="memberId"></span></div>
+    <div class="item">Membership Plan: <span class="value" id="plan"></span></div>
+    <div class="item">Expiry Date: <span class="value" id="expiry"></span></div>
+    <div class="item">Membership Days: <span class="value" id="days"></span></div>
+  </section>
+</main>
+
+<script>
+const SUPABASE_URL = "https://fuxdsulcdscdfoswehka.supabase.co";
+const SUPABASE_KEY = "sb_publishable_tPJTQGaKKcj1oeV3p54k5Q_pRjMsmUr";
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const form = document.getElementById("membershipForm");
+const message = document.getElementById("message");
+const button = document.getElementById("submitBtn");
+const details = document.getElementById("details");
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const identifier = document.getElementById("identifier").value.trim();
+  const pin = document.getElementById("pin").value.trim();
+
+  details.style.display = "none";
+  message.textContent = "Please wait...";
+  message.style.color = "#f5b400";
+  button.disabled = true;
+
+  try {
+    const { data, error } = await db.rpc("member_membership_status", {
+      p_identifier: identifier,
+      p_pin: pin
+    });
+
+    if (error) throw error;
+
+    if (!data || data.success !== true) {
+      message.textContent = data?.message || "Membership details not found.";
+      message.style.color = "#ff7777";
+      return;
+    }
+
+    document.getElementById("name").textContent = data.full_name || "-";
+    document.getElementById("memberId").textContent = data.member_id || "-";
+    document.getElementById("plan").textContent = data.plan || "-";
+
+    if (data.expiry_date) {
+      const parts = String(data.expiry_date).slice(0, 10).split("-");
+      const date = new Date(
+        Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])
+      );
+      document.getElementById("expiry").textContent =
+        date.toLocaleDateString("en-IN");
+    } else {
+      document.getElementById("expiry").textContent = "Not available";
+    }
+
+    const statusBox = document.getElementById("status");
+    const daysBox = document.getElementById("days");
+    const days = data.days_remaining;
+
+    if (days === null || days === undefined) {
+      statusBox.textContent = "Expiry date unavailable";
+      statusBox.style.color = "#ffb84d";
+      daysBox.textContent = "Not available";
+    } else if (Number(days) < 0) {
+      statusBox.textContent = "MEMBERSHIP EXPIRED";
+      statusBox.style.color = "#ff7777";
+      daysBox.textContent = Math.abs(Number(days)) + " days expired";
+    } else if (Number(days) === 0) {
+      statusBox.textContent = "LAST DAY OF MEMBERSHIP";
+      statusBox.style.color = "#ffb84d";
+      daysBox.textContent = "0 days remaining";
+    } else {
+      statusBox.textContent = "MEMBERSHIP ACTIVE";
+      statusBox.style.color = "#35d07f";
+      daysBox.textContent = Number(days) + " days remaining";
+    }
+
+    details.style.display = "block";
+    message.textContent = "Membership details found.";
+    message.style.color = "#35d07f";
+
+  } catch (error) {
+    console.error(error);
+    message.textContent = "Unable to check membership. Please try again.";
+    message.style.color = "#ff7777";
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
