@@ -79,7 +79,7 @@ async function startCamera(){
   try{
     statusBox.textContent="Loading face recognition model...";
     if(!human){
-      human = new Human(config);
+     human = new Human.Human(config);
       await human.load();
       await human.warmup();
     }
