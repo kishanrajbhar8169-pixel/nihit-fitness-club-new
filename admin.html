@@ -696,6 +696,28 @@ document.getElementById("adminRegisterFormFields").addEventListener("submit", as
    btn.textContent="REGISTER MEMBER";
  }
 });
+  async function restoreLoginSession(){
+  const {data,error}=await db.auth.getSession();
+
+  if(error){
+    document.getElementById("message").textContent=
+      "Session error: "+error.message;
+    return;
+  }
+
+  if(data.session){
+    document.getElementById("login").style.display="none";
+    document.getElementById("dashboard").style.display="block";
+
+    await loadMembers();
+    await loadAttendance();
+    await loadDeactivatedCount();
+    await loadInactiveMembers();
+    await loadExpiredMembers();
+  }
+}
+
+restoreLoginSession();
 </script>
 </body>
 </html>
